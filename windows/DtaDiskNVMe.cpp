@@ -34,13 +34,15 @@ along with sedutil.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace std;
 
+#define NVME_MAX_LOG_SIZE 4096  // value from random internet search
+
+#if 0
 // Missing stuff pulled from MSDN
 //
 
 // STORAGE PROPERTY ID is defined but these #define values are missing
 #define StorageAdapterProtocolSpecificProperty (STORAGE_PROPERTY_ID) 49
 
-#define NVME_MAX_LOG_SIZE 4096  // value from random internet search
 typedef enum _STORAGE_PROTOCOL_TYPE {
 	ProtocolTypeUnknown = 0x00,
 	ProtocolTypeScsi,
@@ -74,7 +76,7 @@ typedef struct _STORAGE_PROTOCOL_DATA_DESCRIPTOR {
 } STORAGE_PROTOCOL_DATA_DESCRIPTOR, *PSTORAGE_PROTOCOL_DATA_DESCRIPTOR;
 
 // End of missing stuff
-
+#endif
 
 
 DtaDiskNVMe::DtaDiskNVMe() {};
