@@ -192,7 +192,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PreBuildEvent>
-      <Command>powershell -NonInteractive -NoProfile -File ..\GitVersion.ps1 ..\Version.h</Command>
+      <Command>call ..\git_version.bat</Command>
     </PreBuildEvent>
     <PreBuildEvent>
       <Message>Create version header from git --version dirty</Message>
@@ -254,7 +254,7 @@
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
     <PreBuildEvent>
-      <Command>powershell -NonInteractive -NoProfile -File ..\GitVersion.ps1 ..\Version.h</Command>
+      <Command>call ..\git_version.bat</Command>
     </PreBuildEvent>
     <PreBuildEvent>
       <Message>Create version header from git --version dirty</Message>
