@@ -42,67 +42,68 @@ void DtaDevOS::init(const char * devref)
     LOG(D1) << "Creating DtaDevOS::DtaDevOS() " << devref;
     dev = devref;
     memset(&disk_info, 0, sizeof (OPAL_DiskInfo));
-	/*  Open the drive to see if we have access */
-	ATA_PASS_THROUGH_DIRECT * ata =
-		(ATA_PASS_THROUGH_DIRECT *)_aligned_malloc(sizeof(ATA_PASS_THROUGH_DIRECT), 8);
-	ataPointer = (void *)ata;
-	hDev = CreateFile(devref,
-		GENERIC_WRITE | GENERIC_READ,
-		FILE_SHARE_WRITE | FILE_SHARE_READ,
-		NULL,
-		OPEN_EXISTING,
-		0,
-		NULL);
-	if (INVALID_HANDLE_VALUE == hDev) {
-		DWORD err = GetLastError();
-		// This is a D1 because diskscan looks for open fail to end scan
-		LOG(D1) << "Error opening device " << devref << " Error " << err;
-		if (ERROR_ACCESS_DENIED == err) {
-			LOG(E) << "You do not have proper authority to access the raw disk";
-			LOG(E) << "Try running as Administrator";
-		}
-	}
-	else
-	{
-		isOpen = 1;
-	}
-	/*  determine the attachment type of the drive */
-	STORAGE_PROPERTY_QUERY query;
-	STORAGE_DEVICE_DESCRIPTOR descriptor;
-	DWORD BytesReturned;
-	query.PropertyId = StorageDeviceProperty;
-	query.QueryType = PropertyStandardQuery;
+    /*  Open the drive to see if we have access */
+    ATA_PASS_THROUGH_DIRECT * ata =
+	    (ATA_PASS_THROUGH_DIRECT *)_aligned_malloc(sizeof(ATA_PASS_THROUGH_DIRECT), 8);
+    ataPointer = (void *)ata;
+    hDev = CreateFile(devref,
+	    GENERIC_WRITE | GENERIC_READ,
+	    FILE_SHARE_WRITE | FILE_SHARE_READ,
+	    NULL,
+	    OPEN_EXISTING,
+	    0,
+	    NULL);
+    if (INVALID_HANDLE_VALUE == hDev) {
+	    DWORD err = GetLastError();
+	    // This is a D1 because diskscan looks for open fail to end scan
+	    LOG(D1) << "Error opening device " << devref << " Error " << err;
+	    if (ERROR_ACCESS_DENIED == err) {
+		    LOG(E) << "You do not have proper authority to access the raw disk";
+		    LOG(E) << "Try running as Administrator";
+	    }
+    }
+    else
+    {
+	    isOpen = 1;
+    }
+    /*  determine the attachment type of the drive */
+    STORAGE_PROPERTY_QUERY query;
+    STORAGE_DEVICE_DESCRIPTOR descriptor;
+    DWORD BytesReturned;
+    query.PropertyId = StorageDeviceProperty;
+    query.QueryType = PropertyStandardQuery;
 
-	if (!DeviceIoControl(
-		_In_(HANDLE)       hDev,									// handle to a partition
-		_In_(DWORD) IOCTL_STORAGE_QUERY_PROPERTY,					// dwIoControlCode
-		_In_(LPVOID)       &query,									// input buffer - STORAGE_PROPERTY_QUERY structure
-		_In_(DWORD)        sizeof(STORAGE_PROPERTY_QUERY),			// size of input buffer
-		_Out_opt_(LPVOID)   &descriptor,							// output buffer - see Remarks
-		_In_(DWORD)        sizeof(STORAGE_DEVICE_DESCRIPTOR),		// size of output buffer
-		_Out_opt_(LPDWORD)      &BytesReturned,						// number of bytes returned
-		_Inout_opt_(LPOVERLAPPED) NULL)) {
-		return;
-	}
-	// OVERLAPPED structure
-	switch (descriptor.BusType) {
-	case BusTypeAta:
-	case BusTypeSata:
-		disk = new DtaDiskATA();
-		break;
-	case BusTypeUsb:
-		disk = new DtaDiskUSB();
-		break;
-	case BusTypeNvme:
-		disk = new DtaDiskNVMe();
-		break;
-	default:
-		return;
-	}
+    if (!DeviceIoControl(
+	    _In_(HANDLE)       hDev,									// handle to a partition
+	    _In_(DWORD) IOCTL_STORAGE_QUERY_PROPERTY,					// dwIoControlCode
+	    _In_(LPVOID)       &query,									// input buffer - STORAGE_PROPERTY_QUERY structure
+	    _In_(DWORD)        sizeof(STORAGE_PROPERTY_QUERY),			// size of input buffer
+	    _Out_opt_(LPVOID)   &descriptor,							// output buffer - see Remarks
+	    _In_(DWORD)        sizeof(STORAGE_DEVICE_DESCRIPTOR),		// size of output buffer
+	    _Out_opt_(LPDWORD)      &BytesReturned,						// number of bytes returned
+	    _Inout_opt_(LPOVERLAPPED) NULL)) {
+	    return;
+    }
+    // OVERLAPPED structure
+    switch (descriptor.BusType) {
+    case BusTypeRAID:
+    case BusTypeAta:
+    case BusTypeSata:
+	disk = new DtaDiskATA();
+	break;
+    case BusTypeUsb:
+	disk = new DtaDiskUSB();
+	break;
+    case BusTypeNvme:
+	disk = new DtaDiskNVMe();
+	break;
+    default:
+	return;
+    }
 
-	disk->init(dev);
+    disk->init(dev);
     identify(disk_info);
-	if (DEVICE_TYPE_OTHER != disk_info.devType) discovery0();
+    if (DEVICE_TYPE_OTHER != disk_info.devType) discovery0();
 }
 
 uint8_t DtaDevOS::sendCmd(ATACOMMAND cmd, uint8_t protocol, uint16_t comID,
