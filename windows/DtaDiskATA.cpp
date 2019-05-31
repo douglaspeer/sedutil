@@ -80,7 +80,11 @@ uint8_t DtaDiskATA::sendCmd(ATACOMMAND cmd, uint8_t protocol, uint16_t comID,
     ata->TimeOutValue = 300;
     /* these were a b**** to find  defined in TCG specs but location is defined
      * in ATA spec */
-    if (IDENTIFY != cmd) {
+    if (IDENTIFY == cmd) {
+        ata->TimeOutValue = 5; // 5 seconds
+        ata->CurrentTaskFile[1] = 1; // count
+        ata->CurrentTaskFile[5] = 0xE0; // device
+    } else {
         ata->CurrentTaskFile[0] = protocol; // Protocol
         ata->CurrentTaskFile[1] = uint8_t(bufferlen / 512); // Payload in number of 512 blocks
         // Damn self inflicted endian bugs
@@ -100,7 +104,7 @@ uint8_t DtaDiskATA::sendCmd(ATACOMMAND cmd, uint8_t protocol, uint16_t comID,
                     (LPOVERLAPPED) NULL); // synchronous I/O
     //LOG(D4) << "ata after";
     //IFLOG(D4) hexDump(ata, sizeof (ATA_PASS_THROUGH_DIRECT));
-    return (ata->CurrentTaskFile[0]);
+    return (ata->CurrentTaskFile[0]); // ata error
 }
 
 /** adds the IDENTIFY information to the disk_info structure */
@@ -108,37 +112,35 @@ uint8_t DtaDiskATA::sendCmd(ATACOMMAND cmd, uint8_t protocol, uint16_t comID,
 void DtaDiskATA::identify(OPAL_DiskInfo& disk_info)
 {
     LOG(D1) << "Entering DtaDiskATA::identify()";
-	vector<uint8_t> nullz(512, 0x00);
+    vector<uint8_t> nullz(512, 0x00);
     void * identifyResp = NULL;
-	identifyResp = _aligned_malloc(MIN_BUFFER_LENGTH, IO_BUFFER_ALIGNMENT);
+    identifyResp = _aligned_malloc(MIN_BUFFER_LENGTH, IO_BUFFER_ALIGNMENT);
     if (NULL == identifyResp) return;
     memset(identifyResp, 0, MIN_BUFFER_LENGTH);
     uint8_t iorc = sendCmd(IDENTIFY, 0x00, 0x0000, identifyResp, MIN_BUFFER_LENGTH);
     // TODO: figure out why iorc = 4
     if ((0x00 != iorc) && (0x04 != iorc)) {
         LOG(D) << "IDENTIFY Failed " << (uint16_t) iorc;
-        //ALIGNED_FREE(identifyResp);
-        //return;
     }
-	if (!(memcmp(identifyResp, nullz.data(), 512))) {
-		disk_info.devType = DEVICE_TYPE_OTHER;
-		return;
-	}
-    IDENTIFY_RESPONSE * id = (IDENTIFY_RESPONSE *) identifyResp;
-    disk_info.devType = DEVICE_TYPE_ATA;
-    for (int i = 0; i < sizeof (disk_info.serialNum); i += 2) {
-        disk_info.serialNum[i] = id->serialNum[i + 1];
-        disk_info.serialNum[i + 1] = id->serialNum[i];
+    if (!(memcmp(identifyResp, nullz.data(), 512))) {
+        disk_info.devType = DEVICE_TYPE_OTHER;
+    } else {
+        IDENTIFY_RESPONSE * id = (IDENTIFY_RESPONSE *) identifyResp;
+        disk_info.devType = DEVICE_TYPE_ATA;
+        for (int i = 0; i < sizeof (disk_info.serialNum); i += 2) {
+            disk_info.serialNum[i] = id->serialNum[i + 1];
+            disk_info.serialNum[i + 1] = id->serialNum[i];
+        }
+        for (int i = 0; i < sizeof (disk_info.firmwareRev); i += 2) {
+            disk_info.firmwareRev[i] = id->firmwareRev[i + 1];
+            disk_info.firmwareRev[i + 1] = id->firmwareRev[i];
+        }
+        for (int i = 0; i < sizeof (disk_info.modelNum); i += 2) {
+            disk_info.modelNum[i] = id->modelNum[i + 1];
+            disk_info.modelNum[i + 1] = id->modelNum[i];
+        }
     }
-    for (int i = 0; i < sizeof (disk_info.firmwareRev); i += 2) {
-        disk_info.firmwareRev[i] = id->firmwareRev[i + 1];
-        disk_info.firmwareRev[i + 1] = id->firmwareRev[i];
-    }
-    for (int i = 0; i < sizeof (disk_info.modelNum); i += 2) {
-        disk_info.modelNum[i] = id->modelNum[i + 1];
-        disk_info.modelNum[i + 1] = id->modelNum[i];
-    }
-	_aligned_free(identifyResp);
+    _aligned_free(identifyResp);
     return;
 }
 
